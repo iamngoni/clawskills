@@ -7,6 +7,23 @@ description: Read, create, update, search, and delete notes in Inkdrop via its l
 
 Interact with Inkdrop's local HTTP server to manage notes, notebooks, and tags.
 
+## Prerequisites
+
+1. [Inkdrop](https://inkdrop.app) desktop app installed and running
+2. Local HTTP server enabled in Inkdrop preferences (Preferences → API → Enable Local HTTP Server)
+3. Note the port, username, and password from the Inkdrop preferences
+
+## Setup
+
+Set environment variables:
+
+```bash
+export INKDROP_URL="http://localhost:19840"   # default port
+export INKDROP_AUTH="username:password"        # from Inkdrop preferences
+```
+
+For OpenClaw, add these to your shell profile (`~/.bashrc`, `~/.zshrc`) or workspace secrets so they persist across sessions.
+
 ## Connection
 
 ```
@@ -14,35 +31,46 @@ Base URL: http://localhost:19840 (or INKDROP_URL env var)
 Auth: Basic auth via INKDROP_AUTH env var (user:password)
 ```
 
-Set credentials in your environment or workspace secrets. Never hardcode them.
+Verify connection:
+
+```bash
+curl -s -u "$INKDROP_AUTH" "${INKDROP_URL:-http://localhost:19840}/"
+# Returns: {"version":"5.x.x","ok":true}
+```
 
 ## API Reference
+
+All endpoints use Basic auth. Replace `USER:PASS` with your `$INKDROP_AUTH` value.
 
 ### List Notes
 
 ```bash
-curl -s -u USER:PASS http://localhost:19840/notes
+curl -s -u $INKDROP_AUTH http://localhost:19840/notes
 ```
 
 Query params:
 - `keyword` — search text (same qualifiers as Inkdrop search)
 - `limit` — max results (default: all)
-- `skip` — offset
+- `skip` — offset for pagination
 - `sort` — `updatedAt`, `createdAt`, or `title`
-- `descending` — boolean
+- `descending` — reverse order (boolean)
 
 ### Get Single Document
 
 ```bash
-curl -s -u USER:PASS "http://localhost:19840/<docid>"
+curl -s -u $INKDROP_AUTH "http://localhost:19840/<docid>"
 ```
 
 The `docid` is the full `_id` (e.g., `note:abc123`, `book:xyz`). Works for notes, books, tags, files.
 
+Optional params:
+- `rev` — fetch specific revision
+- `attachments` — include attachment data (boolean, use for file documents)
+
 ### Create Note
 
 ```bash
-curl -s -u USER:PASS -X POST http://localhost:19840/notes \
+curl -s -u $INKDROP_AUTH -X POST http://localhost:19840/notes \
   -H "Content-Type: application/json" \
   -d '{
     "doctype": "markdown",
@@ -54,18 +82,18 @@ curl -s -u USER:PASS -X POST http://localhost:19840/notes \
   }'
 ```
 
-`_id` is auto-generated. `bookId` is required.
+`_id` is auto-generated. `bookId` is required — use `book:inbox` as default or look up notebooks first.
 
 ### Update Note
 
-Use POST with `_id` and `_rev` (required to avoid conflicts):
+POST with `_id` and `_rev` (required to avoid conflicts):
 
 ```bash
 # 1. Get current _rev
-REV=$(curl -s -u USER:PASS "http://localhost:19840/note:abc123" | python3 -c "import sys,json; print(json.load(sys.stdin)['_rev'])")
+REV=$(curl -s -u $INKDROP_AUTH "http://localhost:19840/note:abc123" | python3 -c "import sys,json; print(json.load(sys.stdin)['_rev'])")
 
 # 2. Update with _rev
-curl -s -u USER:PASS -X POST http://localhost:19840/notes \
+curl -s -u $INKDROP_AUTH -X POST http://localhost:19840/notes \
   -H "Content-Type: application/json" \
   -d '{
     "_id": "note:abc123",
@@ -81,19 +109,19 @@ curl -s -u USER:PASS -X POST http://localhost:19840/notes \
 ### Delete Document
 
 ```bash
-curl -s -u USER:PASS -X DELETE "http://localhost:19840/<docid>"
+curl -s -u $INKDROP_AUTH -X DELETE "http://localhost:19840/<docid>"
 ```
 
 ### List Notebooks
 
 ```bash
-curl -s -u USER:PASS http://localhost:19840/books
+curl -s -u $INKDROP_AUTH http://localhost:19840/books
 ```
 
 ### Create Notebook
 
 ```bash
-curl -s -u USER:PASS -X POST http://localhost:19840/books \
+curl -s -u $INKDROP_AUTH -X POST http://localhost:19840/books \
   -H "Content-Type: application/json" \
   -d '{"name": "My Notebook"}'
 ```
@@ -101,15 +129,62 @@ curl -s -u USER:PASS -X POST http://localhost:19840/books \
 ### List Tags
 
 ```bash
-curl -s -u USER:PASS http://localhost:19840/tags
+curl -s -u $INKDROP_AUTH http://localhost:19840/tags
 ```
 
 ### Create Tag
 
 ```bash
-curl -s -u USER:PASS -X POST http://localhost:19840/tags \
+curl -s -u $INKDROP_AUTH -X POST http://localhost:19840/tags \
   -H "Content-Type: application/json" \
   -d '{"_id": "tag:mytag", "name": "mytag", "color": "blue"}'
+```
+
+### List/Create Files (Attachments)
+
+```bash
+curl -s -u $INKDROP_AUTH http://localhost:19840/files
+```
+
+Create with POST to `/files`. Files are primarily image attachments for notes.
+
+### Changes Feed
+
+```bash
+curl -s -u $INKDROP_AUTH "http://localhost:19840/_changes?since=0&limit=50&include_docs=true"
+```
+
+Params: `since` (sequence number), `limit`, `descending`, `include_docs`, `conflicts`, `attachments`.
+
+Returns changes in order they were made. Useful for syncing or watching for updates.
+
+## Helper Script
+
+The included `scripts/inkdrop.sh` wraps common operations:
+
+```bash
+export INKDROP_AUTH="username:password"
+
+# List all notes
+./scripts/inkdrop.sh notes
+
+# Search notes
+./scripts/inkdrop.sh search "project ideas"
+
+# Get a specific note
+./scripts/inkdrop.sh get "note:abc123"
+
+# Create a note (title, bookId, body)
+./scripts/inkdrop.sh create "My Note" "book:inbox" "Note content here"
+
+# List notebooks
+./scripts/inkdrop.sh books
+
+# List tags
+./scripts/inkdrop.sh tags
+
+# Delete a document
+./scripts/inkdrop.sh delete "note:abc123"
 ```
 
 ## Note Model
@@ -137,28 +212,10 @@ curl -s -u USER:PASS -X POST http://localhost:19840/tags \
 - `completed` — Done
 - `dropped` — Abandoned
 
-### List/Create Files (Attachments)
-
-```bash
-curl -s -u USER:PASS http://localhost:19840/files
-```
-
-Create with POST to `/files`. Files are primarily image attachments for notes.
-
-### Changes Feed
-
-```bash
-curl -s -u USER:PASS "http://localhost:19840/_changes?since=0&limit=50&include_docs=true"
-```
-
-Params: `since` (sequence number), `limit`, `descending`, `include_docs`, `conflicts`, `attachments`.
-
-Returns changes in order they were made. Useful for syncing or watching for updates.
-
 ## Conventions
 
 - Default notebook for quick captures: `book:inbox`
 - Use existing notebooks when context is clear (match by name via `GET /books`)
 - Use markdown formatting in note bodies
 - Always fetch `_rev` before updating to avoid conflicts
-- Tag IDs are `tag:<name>` format
+- Tag IDs use `tag:<name>` format
