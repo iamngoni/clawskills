@@ -1,6 +1,13 @@
 ---
 name: inkdrop
 description: Read, create, update, search, and delete notes in Inkdrop via its local HTTP server API. Use when the user asks to take notes, save ideas, manage project notes, read notes, search notes, or interact with Inkdrop in any way. Also use when organizing thoughts, project backlogs, or task lists that should persist in Inkdrop.
+env:
+  INKDROP_AUTH:
+    required: true
+    description: "Basic auth credentials (user:password) from Inkdrop preferences"
+  INKDROP_URL:
+    required: false
+    description: "Inkdrop local server URL (default: http://localhost:19840)"
 ---
 
 # Inkdrop Notes
@@ -22,7 +29,7 @@ export INKDROP_URL="http://localhost:19840"   # default port
 export INKDROP_AUTH="username:password"        # from Inkdrop preferences
 ```
 
-For OpenClaw, add these to your shell profile (`~/.bashrc`, `~/.zshrc`) or workspace secrets so they persist across sessions.
+For OpenClaw, store credentials in a secrets file (e.g., workspace `secrets.md`) and source them at runtime. Avoid persisting plaintext credentials in shell profiles.
 
 ## Connection
 
