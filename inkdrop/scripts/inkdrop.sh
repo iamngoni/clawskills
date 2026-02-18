@@ -1,9 +1,13 @@
 #!/bin/bash
 # Inkdrop CLI helper — wraps the local HTTP server API
 # Usage: inkdrop.sh <command> [args...]
+#
+# Environment variables:
+#   INKDROP_URL  — Base URL (default: http://localhost:19840)
+#   INKDROP_AUTH — user:password for Basic auth (required)
 
-BASE="http://localhost:19840"
-AUTH="iamngoni:simple"
+BASE="${INKDROP_URL:-http://localhost:19840}"
+AUTH="${INKDROP_AUTH:?Set INKDROP_AUTH=user:password}"
 
 cmd="$1"; shift
 
@@ -49,6 +53,7 @@ print(json.dumps(note))" | \
     ;;
   *)
     echo "Usage: inkdrop.sh <notes|search|get|create|update|delete|books|tags> [args...]"
+    echo "Set INKDROP_AUTH=user:password before running."
     exit 1
     ;;
 esac

@@ -10,11 +10,11 @@ Interact with Inkdrop's local HTTP server to manage notes, notebooks, and tags.
 ## Connection
 
 ```
-Base URL: http://localhost:19840
-Auth: Basic (username:password from config)
+Base URL: http://localhost:19840 (or INKDROP_URL env var)
+Auth: Basic auth via INKDROP_AUTH env var (user:password)
 ```
 
-Credentials are stored in the workspace `secrets.md` or passed via env. Default: `iamngoni:simple`.
+Set credentials in your environment or workspace secrets. Never hardcode them.
 
 ## API Reference
 
